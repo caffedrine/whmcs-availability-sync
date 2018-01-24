@@ -176,18 +176,18 @@ function updateDatabase($onlineQty, mysqli $conn)
 		###################################################################################################
 		# Also we have to make sure that fetched servers are still available for other clients
 		# So check every client if it have this product asigned
-		$query_str = "check wethet client have this server allocated or not";
+		$query_str = "SELECT * FROM `tblhosting` ORDER BY `id` DESC";
 		$result2 = $conn->query($query_str);
 		if( !$result2 )
 			return "ERR_QUERY_FAIL";
 
-		if( $result2->num_rows <= 0 )
-			return "ERR_NO_PROD_IDENTIFIERS";
+		// if( $result2->num_rows <= 0 )
+		// 	return "ERR_NO_PROD_IDENTIFIERS";
 
-		while( $row = $result2->fetch_assoc() )
-		{
+		// while( $row2 = $result2->fetch_assoc() )
+		// {
 
-		}
+		// }
 		###################################################################################################
 
 		# Remove "_Offer" suffix from premium servers
