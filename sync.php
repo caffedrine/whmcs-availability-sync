@@ -176,12 +176,13 @@ function updateDatabase($onlineQty, mysqli $conn)
 		###################################################################################################
 		# Also we have to make sure that fetched servers are still available for other clients
 		# So check every client if it have this product asigned
-		$query_str = "SELECT * FROM `tblhosting` WHERE `server` = '$row[\"id\"]'";
+		$curr_id = $row['id'];
+		$query_str = "SELECT * FROM `tblhosting` WHERE `server` = '$curr_id'";
 		$result2 = $conn->query($query_str);
 		if( !$result2 )
 			return "ERR_QUERY_FAIL";
 
-		if( $result2->num_rows <= 0 )
+		if( $result2->num_rows > 0 )	# if server already assigned
 			continue;
 
 		###################################################################################################
@@ -199,7 +200,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 		$diskQty = str_replace('hdd', '', $diskQty);
 		$diskQty = str_replace('ssd', '', $diskQty);
 
-		echo $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
+		echo $curr_id . "___" . $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
 
 		$found = false;
 		for($i=0; $i <=4; $i++)
