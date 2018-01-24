@@ -200,7 +200,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 		$diskQty = str_replace('hdd', '', $diskQty);
 		$diskQty = str_replace('ssd', '', $diskQty);
 
-		echo $curr_id . "___" . $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
+		# echo $curr_id . "___" . $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
 
 		$found = false;
 		for($i=0; $i <=4; $i++)
@@ -256,7 +256,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 			if($found == true)
 				break;
 		}
-	}return;
+	}
 	#############################################################################
 
 	# Retrieve all products IDs
@@ -285,6 +285,15 @@ function updateDatabase($onlineQty, mysqli $conn)
 				if( trim($product['offer']) == trim($bridge[$id]) )
 				{
 					echo "found it: " . $id . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['offer'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['memory'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product["disk"] . "<br>";
+
+					#### Insert into DB ####
+					$newQty = $product['availability'];
+					$query_str = "UPDATE `tblproducts` SET `qty` = '$newQty' WHERE `tblproducts`.`id` = '$id';";
+					$result2 = $conn->query($query_str);
+
+
+					########################
+
 					$found = true;
 					break;
 				}
