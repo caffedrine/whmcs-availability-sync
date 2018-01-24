@@ -1,4 +1,14 @@
 <?php
+
+# Database configs
+require ("../configuration.php");
+
+$conn = new mysqli($db_host, $db_username, $db_password, $db_name);
+if( $conn->connect_error )
+{
+	die("Connection failed: " . $conn->connect_error);
+}
+
 /**
  * Fetch products from https://console.online.net/en/order/server then sync with 1way
  */
@@ -123,23 +133,9 @@ function getOnlineServers($link)
 // 	break;
 // }
 
-# Update database
-/**
- *
- */
-function updateDatabase($onlineQty)
+# Function used to update database
+function updateDatabase($onlineQty, mysqli $conn)
 {
-	$db_host = 'localhost';
-	$db_username = 'whmcs';
-	$db_password = 'Rdn36s9@rertretr';
-	$db_name = 'whmcs';
-
-	$conn = new mysqli($db_host, $db_username, $db_password, $db_name);
-	if( $conn->connect_error )
-	{
-		die("Connection failed: " . $conn->connect_error);
-	}
-
 	# Bridging elements - ProductID with server names
 	$bridge =
 		[
@@ -174,7 +170,14 @@ function updateDatabase($onlineQty)
 
 	while( $row = $result->fetch_assoc() )
 	{
-		$ramQty = strtolower(explode("_", $row['name'])[1]);
+		if(!isset($row['name']) || $row['name'] == null)
+			continue;
+
+		# Remove "_Offer" suffix from premium servers
+		$row['name'] = strtolower($row['name']);
+		$row['name'] - str_replace("_offer", "", $row['name']);
+
+		$ramQty = strtolower(explode("_", $row['name'])[1]); if(!isset($ramQty) || $ramQty == null) continue;
 		$diskQty = strtolower(explode("_", $row['name'])[2]);
 		$diskType = (strpos($diskQty, "hdd") !== false)?"hdd":"ssd";
 
@@ -183,71 +186,102 @@ function updateDatabase($onlineQty)
 		$diskQty = str_replace('hdd', '', $diskQty);
 		$diskQty = str_replace('ssd', '', $diskQty);
 
-		# echo $ramQty . " -> " . $diskQty . " -> " . $diskType . "<br>";
-		# echo $ramQty . " -> " . $diskQty . " -> " . $diskType . "<br>";
+		#echo $ramQty . "___" . $diskQty . "<br>"; continue;
 
 		$found = false;
 		for($i=0; $i <=4; $i++)
 		{
 			foreach($onlineQty[$i] as $product)
 			{
+				if(!isset($product['offer']) || $product['offer'] == "")
+					continue;
 
 				$ramQtyOnline = str_replace('go', 'gb', strtolower(str_replace(' ', '', $product['memory'])));
-				$diskQtyOnline = str_replace('go', 'gb', str_replace(" x ", "x", strtolower($product['disk'])));
-				$diskTypeOnline = "hdd";//(explode(" ", $diskQtyOnline)[2] == "")?"hdd":"ssd";
+				$diskQtyOnline = trim(str_replace('to', 'tb', str_replace('go', 'gb', str_replace(" x ", "x", strtolower($product['disk'])))));
+				$diskTypeOnline = (explode(" ", $diskQtyOnline)[2] == "")?"hdd":"ssd";
+				$diskQtyOnline = str_replace("ssd", "", $diskQtyOnline);
 
-				echo $ramQtyOnline . "->" . $diskQtyOnline . " -> " . $diskTypeOnline . "<br>";
+				// calculate total disk
+				$disk_split = explode(" ", $diskQtyOnline);
 
-				//$found = true;
-				//break;
+				$unit = $disk_split[1];
+				$operands = explode("x", $disk_split[0]);
+				$operand1 = $operands[0];
+				$operand2 = $operands[1];
+				$total = $operand1*$operand2;
+
+				# convert to TB is needed
+				if($total >= 1000 && $unit == "gb")
+				{
+					$total = $total/1000;
+					$unit = "tb";
+				}
+
+				# write back the calculated sum
+				$diskQtyOnline = $total . $unit;
+
+				# Now as we have the some units, now qtty can be compared
+				if($ramQty == $ramQtyOnline && $diskQty == $diskQtyOnline && $diskType == $diskTypeOnline)
+				{
+					echo $ramQty . "-" . $ramQtyOnline . "___" . $diskQty . "-" . $diskQtyOnline . "___" . $diskType . "-" . $diskTypeOnline . "<br>";
+
+					$curr_array_index = array_search($product, $onlineQty[$i]);
+
+					if(is_numeric($product['availability']))
+						$product['availability']++;
+					else
+						$product['availability'] = 1;
+
+					// Assign new values to array
+					$onlineQty[$i][$curr_array_index] = $product;
+
+					$found = true;
+					break;
+				}
 			}
-		}
-		if($found == true)
-			break;
-	}
-	break;
-}
-
-return;
-#############################################################################
-
-# Retrieve all products IDs
-$query_str = "SELECT * from `tblproducts` WHERE `type` = 'server'";
-
-$result = $conn->query($query_str);
-
-if( !$result )
-	return "ERR_QUERY_FAIL";
-
-if( $result->num_rows <= 0 )
-	return "ERR_NO_PROD_IDENTIFIERS";
-
-while( $row = $result->fetch_assoc() )
-{
-	$id = (int)$row['id'];
-	$found = false;
-
-	if( !isset($bridge[$id]) )
-		continue;
-
-	for($i = 0; $i <= 4; $i++)
-	{
-		foreach($onlineQty[$i] as $product)
-		{
-			if( trim($product['offer']) == trim($bridge[$id]) )
-			{
-				echo "found it: " . $id . " -> " . $product['offer'] . " -> " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " -> " . $product['memory'] . " -> " . $product["disk"] . "<br>";
-				$found = true;
+			if($found == true)
 				break;
-			}
 		}
-		if( $found == true )
-			break;
+	}return;
+	#############################################################################
+
+	# Retrieve all products IDs
+	$query_str = "SELECT * from `tblproducts` WHERE `type` = 'server'";
+
+	$result = $conn->query($query_str);
+
+	if( !$result )
+		return "ERR_QUERY_FAIL";
+
+	if( $result->num_rows <= 0 )
+		return "ERR_NO_PROD_IDENTIFIERS";
+
+	while( $row = $result->fetch_assoc() )
+	{
+		$id = (int)$row['id'];
+		$found = false;
+
+		if( !isset($bridge[$id]) )
+			continue;
+
+		for($i = 0; $i <= 4; $i++)
+		{
+			foreach($onlineQty[$i] as $product)
+			{
+				if( trim($product['offer']) == trim($bridge[$id]) )
+				{
+					echo "found it: " . $id . " -> " . $product['offer'] . " -> " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " -> " . $product['memory'] . " -> " . $product["disk"] . "<br>";
+					$found = true;
+					break;
+				}
+			}
+			if( $found == true )
+				break;
+		}
+		$found = false;
 	}
-	$found = false;
-}
 }
 
 
 $online_offers = getOnlineServers($ONLINE_PRODUCTS_LINK);
-updateDatabase($online_offers);
+updateDatabase($online_offers, $conn);
