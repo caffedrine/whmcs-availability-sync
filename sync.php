@@ -173,6 +173,16 @@ function updateDatabase($onlineQty, mysqli $conn)
 		if(!isset($row['name']) || $row['name'] == null)
 			continue;
 
+		# Also we have to make sure that fetched servers are still available for other clients
+		# So check every client if it have this product asigned
+		$query_str = "check wethet client have this server allocated or not";
+		$result2 = $conn->query($query_str);
+		if( !$result2 )
+			return "ERR_QUERY_FAIL";
+
+		if( $result2->num_rows <= 0 )
+			return "ERR_NO_PROD_IDENTIFIERS";
+
 		# Remove "_Offer" suffix from premium servers
 		$row['name'] = strtolower($row['name']);
 		$row['name'] - str_replace("_offer", "", $row['name']);
@@ -186,7 +196,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 		$diskQty = str_replace('hdd', '', $diskQty);
 		$diskQty = str_replace('ssd', '', $diskQty);
 
-		#echo $ramQty . "___" . $diskQty . "<br>"; continue;
+		echo $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
 
 		$found = false;
 		for($i=0; $i <=4; $i++)
@@ -223,7 +233,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 				# Now as we have the some units, now qtty can be compared
 				if($ramQty == $ramQtyOnline && $diskQty == $diskQtyOnline && $diskType == $diskTypeOnline)
 				{
-					echo $ramQty . "-" . $ramQtyOnline . "___" . $diskQty . "-" . $diskQtyOnline . "___" . $diskType . "-" . $diskTypeOnline . "<br>";
+					# echo $ramQty . "-" . $ramQtyOnline . "___" . $diskQty . "-" . $diskQtyOnline . "___" . $diskType . "-" . $diskTypeOnline . "<br>";
 
 					$curr_array_index = array_search($product, $onlineQty[$i]);
 
@@ -270,7 +280,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 			{
 				if( trim($product['offer']) == trim($bridge[$id]) )
 				{
-					echo "found it: " . $id . " -> " . $product['offer'] . " -> " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " -> " . $product['memory'] . " -> " . $product["disk"] . "<br>";
+					echo "found it: " . $id . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['offer'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['memory'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product["disk"] . "<br>";
 					$found = true;
 					break;
 				}
