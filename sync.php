@@ -9,6 +9,9 @@ if( $conn->connect_error )
 	die("Connection failed: " . $conn->connect_error);
 }
 
+# Setting up headers to enable newlines and tabs
+header('Content-Type: text/plain');
+
 /**
  * Fetch products from https://console.online.net/en/order/server then sync with 1way
  */
@@ -284,7 +287,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 			{
 				if( trim($product['offer']) == trim($bridge[$id]) )
 				{
-					echo "found it: " . $id . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['offer'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product['memory'] . " &nbsp;&nbsp;->&nbsp;&nbsp; " . $product["disk"] . "<br>";
+					echo $id . " " . (strlen($product['offer'])>23?substr($product['offer'], 0, 17)."...":$product['offer']) . "\t" . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . "\t" . $product['memory'] . "\t" . $product["disk"] . "\n";
 
 					#### Insert into DB ####
 					$newQty = $product['availability'];
@@ -293,7 +296,6 @@ function updateDatabase($onlineQty, mysqli $conn)
 
 
 					########################
-
 					$found = true;
 					break;
 				}
