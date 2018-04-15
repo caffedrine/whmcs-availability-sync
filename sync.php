@@ -1,5 +1,10 @@
 <?php
 
+# Only for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 # Database configs
 require ("../configuration.php");
 
@@ -70,6 +75,7 @@ function getOnlineServers($link)
 		die("ERR_FETCH_SRC");
 
 	# Store results in this variable in a 2 dimensions array: $results[SERVERS_GROUP][INDEX]
+	# There are 5 tables on online.net. Every table have an array of servers
 	$results =
 		[
 			0 => array(array()),
@@ -78,6 +84,8 @@ function getOnlineServers($link)
 			3 => array(array()),
 			4 => array(array())
 		];
+
+	# This is for every server
 	$result =
 		[
 			"offer" => "",
@@ -116,7 +124,7 @@ function getOnlineServers($link)
 			$result['memory'] = trim($cols->item(2)->nodeValue);
 			$result['disk'] = trim($cols->item(3)->nodeValue);
 			$result['connectivity'] = trim($cols->item(4)->nodeValue);
-			$result['availability'] = trim($cols->item(5)->nodeValue);
+			$result['availability'] = is_numeric(trim($cols->item(5)->nodeValue))?trim($cols->item(5)->nodeValue):"0";
 			$result['price'] = trim($cols->item(6)->nodeValue);
 
 			array_push($results[$i], $result);
@@ -125,16 +133,16 @@ function getOnlineServers($link)
 	return $results;
 }
 
-// $results = getOnlineServers($ONLINE_PRODUCTS_LINK);
-
-// for($i=0; $i <= 4; $i++)
+# Debug retrieved servers
+// $results = getOnlineServers($ONLINE_PRODUCTS_LINK);	// Format: $result[servers_table][index]['param']
+// foreach($results as $index)
 // {
-// 	foreach($results[$i] as $r)
-// 	{
-// 		echo $r['offer'] . " - " . $r['cpu'] . " - " . $r['memory'] . " - " . $r['connectivity'] . " - " . $r['availability'] . " - " . $r['price'] . "<br>";
-// 	}
-// 	break;
+// 	foreach( $index as $r )
+// 		//print_r($index);
+// 		if(  isset($r['offer']) )
+// 		echo $r['offer'] . " \t " . $r['availability'] . " \t " . $r['memory'] . " \t " . $r['disk'] . " \t " . $r['connectivity'] . " \t " . $r['cpu'] . " \t " . $r['price'] . "\n";
 // }
+// exit(1);
 
 # Function used to update database
 function updateDatabase($onlineQty, mysqli $conn)
@@ -142,25 +150,22 @@ function updateDatabase($onlineQty, mysqli $conn)
 	# Bridging elements - ProductID with server names
 	$bridge =
 		[
-			2 => "Dedibox SC SATA 2016",
-			5 => "Dedibox LT SSD 2017",
-			7 => "Dedibox MD SSD 2017",
-			8 => "Dedibox PRO 2016",
-			9 => "Dedibox ENT SSD 2015 Gen2",
-			10 => "Dedibox mWOPR SATA 2015 Gen2",
-			11 => "Dedibox WOPR SATA 2015 Gen2",
-			13 => "Dedibox ST 18 2017",
-			16 => "Dedibox PST 24 2017",
-			17 => "Dedibox ST72v2",
-			33 => "Dedibox XC SSD 2016",
-			34 => "Dedibox XC SATA 2016",
-			36 => "Dedibox Classic 2016",
-			37 => "Dedibox ST12 SSD 2016",
-			40 => "Dedibox ST8 SATA 2016",
+			2 => "Start-2-S-SATA",
+
+			7 => "Pro-6-S",
+			8 => "Pro-4-L",
+			9 => "Core-4-S-SATA",
+
+			33 => "Start-2-M-SSD",
+			34 => "Start-2-M-SATA",
+
+			36 => "Start-3-L",
+
+			40 => "Store-1-S",
 
 		];
 
-	# First of all, alter online.net results by adding the servers available from
+	# First of all, alter online.net results by adding the servers available from Servers menu, on WHMCS
 	#############################################################################
 	$query_str = "SELECT * FROM `tblservers` WHERE `type` = 'online'";
 	$result = $conn->query($query_str);
@@ -194,17 +199,20 @@ function updateDatabase($onlineQty, mysqli $conn)
 		$row['name'] = strtolower($row['name']);
 		$row['name'] - str_replace("_offer", "", $row['name']);
 
+		# Extract configuration os servers retrievede from whmcs
 		$ramQty = strtolower(explode("_", $row['name'])[1]); if(!isset($ramQty) || $ramQty == null) continue;
 		$diskQty = strtolower(explode("_", $row['name'])[2]);
 		$diskType = (strpos($diskQty, "hdd") !== false)?"hdd":"ssd";
 
-		#Convert quantities to int comparable int values
+		# Convert quantities to int comparable int values
 		$ramQty = explode("gb", $ramQty)[0] . "gb";
 		$diskQty = str_replace('hdd', '', $diskQty);
 		$diskQty = str_replace('ssd', '', $diskQty);
 
-		# echo $curr_id . "___" . $ramQty . "___" . $diskQty . "___" . $diskType . "<br>"; continue;
+		# Debug
+		# echo $curr_id . "\t" . $ramQty . "\t" . $diskQty . "\t" . $diskType . "\n"; continue;
 
+		# Loop through all online.net servers ans see whene quantities have to be summed up
 		$found = false;
 		for($i=0; $i <=4; $i++)
 		{
@@ -213,9 +221,15 @@ function updateDatabase($onlineQty, mysqli $conn)
 				if(!isset($product['offer']) || $product['offer'] == "")
 					continue;
 
+				# Debug
+				# echo $product['offer'] . " \t " . $product['cpu'] . " \t " . $product['memory'] . " \t " . $product['disk'] . " \t " . $product['connectivity'] . " \t " . $product['availability'] . " \t " . $product['price'] . "\n"; continue;
+
 				$ramQtyOnline = str_replace('go', 'gb', strtolower(str_replace(' ', '', $product['memory'])));
 				$diskQtyOnline = trim(str_replace('to', 'tb', str_replace('go', 'gb', str_replace(" x ", "x", strtolower($product['disk'])))));
-				$diskTypeOnline = (explode(" ", $diskQtyOnline)[2] == "")?"hdd":"ssd";
+
+				$diskTypeOnline = (strpos($diskQtyOnline, 'ssd') !== false)?"ssd":"hdd";
+
+
 				$diskQtyOnline = str_replace("ssd", "", $diskQtyOnline);
 
 				// calculate total disk
@@ -237,7 +251,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 				# write back the calculated sum
 				$diskQtyOnline = $total . $unit;
 
-				# Now as we have the some units, now qtty can be compared
+				# Now that we have the some units, now qtty can be compared
 				if($ramQty == $ramQtyOnline && $diskQty == $diskQtyOnline && $diskType == $diskTypeOnline)
 				{
 					# echo $ramQty . "-" . $ramQtyOnline . "___" . $diskQty . "-" . $diskQtyOnline . "___" . $diskType . "-" . $diskTypeOnline . "<br>";
@@ -260,8 +274,23 @@ function updateDatabase($onlineQty, mysqli $conn)
 				break;
 		}
 	}
-	#############################################################################
 
+
+	# Debug - Make sure quantities are ok and the servers from whmcs are summed up with servers from online.net
+	// for($i=0; $i<=4; $i++)
+	// {
+	// 	foreach($onlineQty[$i] as $product)
+	// 	{
+	// 		if(!isset($product['offer']) || $product['offer'] == "")
+	// 			continue;
+
+	// 		# Debug
+	// 		echo $product['offer'] . " \t " . $product['availability'] . " \t " . $product['memory'] . " \t " . $product['disk'] . " \t " . $product['connectivity'] . " \t " . $product['cpu'] . " \t " . $product['price'] . "\n"; continue;
+	// 	}
+	// }
+
+
+	#############################################################################
 	# Retrieve all products IDs
 	$query_str = "SELECT * from `tblproducts` WHERE `type` = 'server'";
 
@@ -285,8 +314,12 @@ function updateDatabase($onlineQty, mysqli $conn)
 		{
 			foreach($onlineQty[$i] as $product)
 			{
+				if(!isset($product['offer']) || $product['offer'] == "")
+					continue;
+
 				if( trim($product['offer']) == trim($bridge[$id]) )
 				{
+					# DISPLAY RESULT
 					echo $id . " " . (strlen($product['offer'])>23?substr($product['offer'], 0, 17)."...":$product['offer']) . "\t" . ( is_numeric($product['availability']) ? $product['availability'] : "0" ) . "\t" . $product['memory'] . "\t" . $product["disk"] . "\n";
 
 					#### Insert into DB ####
