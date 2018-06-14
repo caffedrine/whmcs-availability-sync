@@ -84,7 +84,7 @@ function getOnlineServers($link)
 			3 => array(array()),
 			4 => array(array())
 		];
-
+	
 	# This is for every server
 	$result =
 		[
@@ -103,7 +103,7 @@ function getOnlineServers($link)
 	# store every table with servers in this array
 	$serversTablesHTML = getHTMLElementsByClass("$SERVERS_CLASS_NAME", $source);
 
-	for($i = 0; $i <= 4; $i++)
+	for($i = 0; $i < count($serversTablesHTML); $i++)
 	{
 		$table_html = $serversTablesHTML[$i]["inner_html"];
 
@@ -139,7 +139,7 @@ function getOnlineServers($link)
 // {
 // 	foreach( $index as $r )
 // 		//print_r($index);
-// 		if(  isset($r['offer']) )
+// 		if(  isset($r['offer']) ) 
 // 		echo $r['offer'] . " \t " . $r['availability'] . " \t " . $r['memory'] . " \t " . $r['disk'] . " \t " . $r['connectivity'] . " \t " . $r['cpu'] . " \t " . $r['price'] . "\n";
 // }
 // exit(1);
@@ -151,7 +151,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 	$bridge =
 		[
 			2 => "Start-2-S-SATA",
-
+					
 			7 => "Pro-6-S",
 			8 => "Pro-4-L",
 			9 => "Core-4-S-SATA",
@@ -226,9 +226,9 @@ function updateDatabase($onlineQty, mysqli $conn)
 
 				$ramQtyOnline = str_replace('go', 'gb', strtolower(str_replace(' ', '', $product['memory'])));
 				$diskQtyOnline = trim(str_replace('to', 'tb', str_replace('go', 'gb', str_replace(" x ", "x", strtolower($product['disk'])))));
-
+				
 				$diskTypeOnline = (strpos($diskQtyOnline, 'ssd') !== false)?"ssd":"hdd";
-
+				
 
 				$diskQtyOnline = str_replace("ssd", "", $diskQtyOnline);
 
