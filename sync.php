@@ -1,9 +1,9 @@
 <?php
 
 # Only for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 
 # Database configs
 require ("../configuration.php");
@@ -31,11 +31,10 @@ function getHTMLElementsByClass($classname, $htmlstring, $tags = array('*'))
 	$contents = array();
 	$pattern = "/<([\w]+)([^>]*?)(([\s]*\/>)|(>((([^<]*?|<\!\-\-.*?\-\->)|(?R))*)<\/\\1[\s]*>))/sm";
 	$dom = new DOMDocument();
-	$libxml_previous_state = libxml_use_internal_errors(true);
+	libxml_use_internal_errors(true);
 	$dom->loadHTML($htmlstring);
 	$errors = libxml_get_errors();
 	libxml_clear_errors();
-	libxml_use_internal_errors($libxml_previous_state);
 	$xpath = new DOMXPath($dom);
 	foreach($tags as $tagname)
 	{
@@ -94,6 +93,7 @@ function getOnlineServers($link)
 			"disk" => "",
 			"connectivity" => "",
 			"availability" => "",
+			"bandwidth" => "",
 			"price" => ""
 		];
 
@@ -124,10 +124,24 @@ function getOnlineServers($link)
 			$result['memory'] = trim($cols->item(2)->nodeValue);
 			$result['disk'] = trim($cols->item(3)->nodeValue);
 			$result['connectivity'] = trim($cols->item(4)->nodeValue);
-			$result['availability'] = is_numeric(trim($cols->item(5)->nodeValue))?trim($cols->item(5)->nodeValue):"0";
-			$result['price'] = trim($cols->item(6)->nodeValue);
+			$result['bandwidth'] = trim($cols->item(5)->nodeValue);
+			$result['availability'] = is_numeric(trim($cols->item(6)->nodeValue))?trim($cols->item(6)->nodeValue):"0";
+			$result['price'] = trim($cols->item(7)->nodeValue);
 
-			array_push($results[$i], $result);
+			$not_duplicate = true;
+			foreach ($results as $index) 
+			{
+				foreach($index as $res)
+				{
+					if( isset($resp['offer']) && $res['offer'] == $result['offer'])
+					{
+						$not_duplicate = false;
+						$res['availability'] += $result['availability'];
+					}
+				}
+			}
+			if($not_duplicate)
+				array_push($results[$i], $result);
 		}
 	}
 	return $results;
@@ -151,7 +165,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 	$bridge =
 		[
 			2 => "Start-2-S-SATA",
-					
+			4 => "Start-1-L",
 			7 => "Pro-6-S",
 			8 => "Pro-4-L",
 			9 => "Core-4-S-SATA",
@@ -160,8 +174,10 @@ function updateDatabase($onlineQty, mysqli $conn)
 			34 => "Start-2-M-SATA",
 
 			36 => "Start-3-L",
-
+			
 			40 => "Store-1-S",
+
+			57 => "Start-2-XS-SATA",
 
 		];
 
@@ -212,7 +228,7 @@ function updateDatabase($onlineQty, mysqli $conn)
 		# Debug
 		# echo $curr_id . "\t" . $ramQty . "\t" . $diskQty . "\t" . $diskType . "\n"; continue;
 
-		# Loop through all online.net servers ans see whene quantities have to be summed up
+		# Loop through all online.net servers and see where quantities have to be summed up
 		$found = false;
 		for($i=0; $i <=4; $i++)
 		{
